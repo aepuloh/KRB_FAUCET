@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KRB Faucet</title>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f9f9f9; text-align: center; padding: 50px; }
+    button { padding: 10px 20px; font-size: 16px; margin: 10px; cursor: pointer; border: none; border-radius: 8px; }
+    #connect { background: #3b82f6; color: white; }
+    #claim { background: #22c55e; color: white; }
+    #status { margin-top: 20px; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>🚰 KRB Faucet</h1>
+  <p>Klaim token Kacer Birds (KRB) di BNB Testnet</p>
+
+  <button id="connect">Connect Wallet</button>
+  <button id="claim" disabled>Claim 1000 KRB</button>
+
+  <div id="status"></div>
+
+  <script>
+    const faucetAddress = "0xece43043143414bC9A02d22bB3cf11Ba3545C53f"; // ganti dengan kontrak faucet
+    const faucetABI = [
+      "function requestTokens() public"
+    ];
+
+    let provider, signer, faucet;
+
+    async function connectWallet() {
+      if (window.ethereum) {
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        await provider.send("eth_requestAccounts", []);
+        signer = provider.getSigner();
+        faucet = new ethers.Contract(faucetAddress, faucetABI, signer);
+        document.getElementById("status").innerText = "✅ Wallet Connected";
+        document.getElementById("claim").disabled = false;
+      } else {
+        alert("MetaMask tidak ditemukan!");
+      }
+    }
+
+    async function claimTokens() {
+      try {
+        const tx = await faucet.requestTokens();
+        document.getElementById("status").innerText = "⏳ Transaksi dikirim: " + tx.hash;
+        await tx.wait();
+        document.getElementById("status").innerText = "🎉 Sukses klaim 1000 KRB!";
+      } catch (err) {
+        document.getElementById("status").innerText = "❌ Error: " + err.message;
+      }
+    }
+
+    document.getElementById("connect").onclick = connectWallet;
+    document.getElementById("claim").onclick = claimTokens;
+  </script>
+</body>
+</html>
