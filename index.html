@@ -23,39 +23,57 @@
   <div id="status"></div>
 
   <script>
-    const faucetAddress = "0xece43043143414bC9A02d22bB3cf11Ba3545C53f"; // ganti dengan kontrak faucet
-    const faucetABI = [
-      "function requestTokens() public"
-    ];
-
-    let provider, signer, faucet;
-
-    async function connectWallet() {
-      if (window.ethereum) {
-        provider = new ethers.providers.Web3Provider(window.ethereum);
-        await provider.send("eth_requestAccounts", []);
-        signer = provider.getSigner();
-        faucet = new ethers.Contract(faucetAddress, faucetABI, signer);
-        document.getElementById("status").innerText = "✅ Wallet Connected";
-        document.getElementById("claim").disabled = false;
-      } else {
-        alert("MetaMask tidak ditemukan!");
-      }
+  const faucetAddress = "0xece43043143414bC9A02d22bB3cf11Ba3545C53f"; // ganti dengan alamat kontrak faucet kamu
+  const faucetABI = [
+    {
+      "inputs": [],
+      "name": "requestTokens",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
     }
+  ];
 
-    async function claimTokens() {
-      try {
-        const tx = await faucet.requestTokens();
-        document.getElementById("status").innerText = "⏳ Transaksi dikirim: " + tx.hash;
-        await tx.wait();
-        document.getElementById("status").innerText = "🎉 Sukses klaim 1000 KRB!";
-      } catch (err) {
-        document.getElementById("status").innerText = "❌ Error: " + err.message;
+  let provider, signer, faucet;
+
+  async function connectWallet() {
+    if (window.ethereum) {
+      provider = new ethers.providers.Web3Provider(window.ethereum);
+
+      // minta koneksi wallet
+      await provider.send("eth_requestAccounts", []);
+
+      // cek network → harus BNB Testnet (chainId 97)
+      const network = await provider.getNetwork();
+      if (network.chainId !== 97) {
+        alert("⚠️ Harus di BNB Testnet (Chain ID 97). Silakan switch network di MetaMask.");
+        return;
       }
-    }
 
-    document.getElementById("connect").onclick = connectWallet;
-    document.getElementById("claim").onclick = claimTokens;
-  </script>
+      signer = provider.getSigner();
+      faucet = new ethers.Contract(faucetAddress, faucetABI, signer);
+
+      document.getElementById("status").innerText = "✅ Wallet Connected";
+      document.getElementById("claim").disabled = false;
+    } else {
+      alert("MetaMask tidak ditemukan! Install dulu di browser.");
+    }
+  }
+
+  async function claimTokens() {
+    try {
+      const tx = await faucet.requestTokens();
+      document.getElementById("status").innerText = "⏳ Transaksi dikirim: " + tx.hash;
+      await tx.wait();
+      document.getElementById("status").innerText = "🎉 Sukses klaim 1000 KRB!";
+    } catch (err) {
+      console.error(err);
+      document.getElementById("status").innerText = "❌ Error: " + (err.message || "Transaksi gagal");
+    }
+  }
+
+  document.getElementById("connect").onclick = connectWallet;
+  document.getElementById("claim").onclick = claimTokens;
+</script>
 </body>
 </html>
