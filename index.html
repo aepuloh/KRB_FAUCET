@@ -23,57 +23,32 @@
   <div id="status"></div>
 
   <script>
-  const faucetAddress = "0xece43043143414bC9A02d22bB3cf11Ba3545C53f"; // ganti dengan alamat kontrak faucet kamu
-  const faucetABI = [
-    {
-      "inputs": [],
-      "name": "requestTokens",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    }
-  ];
-
-  let provider, signer, faucet;
+  <script>
+  let provider, signer;
 
   async function connectWallet() {
-    if (window.ethereum) {
-      provider = new ethers.providers.Web3Provider(window.ethereum);
+    if (typeof window.ethereum !== "undefined") {
+      try {
+        // Minta izin akses wallet
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        await provider.send("eth_requestAccounts", []);
+        
+        signer = provider.getSigner();
+        const address = await signer.getAddress();
 
-      // minta koneksi wallet
-      await provider.send("eth_requestAccounts", []);
+        document.getElementById("status").innerText = "✅ Connected: " + address;
+        document.getElementById("claim").disabled = false;
 
-      // cek network → harus BNB Testnet (chainId 97)
-      const network = await provider.getNetwork();
-      if (network.chainId !== 97) {
-        alert("⚠️ Harus di BNB Testnet (Chain ID 97). Silakan switch network di MetaMask.");
-        return;
+      } catch (err) {
+        console.error(err);
+        document.getElementById("status").innerText = "❌ Error: " + err.message;
       }
-
-      signer = provider.getSigner();
-      faucet = new ethers.Contract(faucetAddress, faucetABI, signer);
-
-      document.getElementById("status").innerText = "✅ Wallet Connected";
-      document.getElementById("claim").disabled = false;
     } else {
-      alert("MetaMask tidak ditemukan! Install dulu di browser.");
-    }
-  }
-
-  async function claimTokens() {
-    try {
-      const tx = await faucet.requestTokens();
-      document.getElementById("status").innerText = "⏳ Transaksi dikirim: " + tx.hash;
-      await tx.wait();
-      document.getElementById("status").innerText = "🎉 Sukses klaim 1000 KRB!";
-    } catch (err) {
-      console.error(err);
-      document.getElementById("status").innerText = "❌ Error: " + (err.message || "Transaksi gagal");
+      alert("⚠️ MetaMask tidak ditemukan. Silakan install di browser.");
     }
   }
 
   document.getElementById("connect").onclick = connectWallet;
-  document.getElementById("claim").onclick = claimTokens;
 </script>
 </body>
 </html>
