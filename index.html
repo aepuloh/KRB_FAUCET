@@ -7,7 +7,8 @@
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
   <style>
     body { font-family: Arial, sans-serif; background: #f9f9f9; text-align: center; padding: 50px; }
-    button { padding: 10px 20px; font-size: 16px; margin: 10px; cursor: pointer; border: none; border-radius: 8px; }
+    h1 { color: #333; }
+    button { padding: 12px 20px; font-size: 16px; margin: 10px; cursor: pointer; border: none; border-radius: 8px; }
     #connect { background: #3b82f6; color: white; }
     #claim { background: #22c55e; color: white; }
     #status { margin-top: 20px; font-weight: bold; }
@@ -15,40 +16,75 @@
 </head>
 <body>
   <h1>🚰 KRB Faucet</h1>
-  <p>Klaim token Kacer Birds (KRB) di BNB Testnet</p>
+  <p>Klaim token <b>Kacer Birds (KRB)</b> di BNB Testnet</p>
 
-  <button id="connect">Connect Wallet</button>
-  <button id="claim" disabled>Claim 1000 KRB</button>
+  <button id="connect">🔌 Connect Wallet</button>
+  <button id="claim" disabled>💧 Claim 1000 KRB</button>
 
-  <div id="status"></div>
+  <div id="status">❌ Wallet not connected</div>
 
   <script>
-  <script>
-  let provider, signer;
+    // 🟢 Ganti dengan alamat faucet kamu
+    const faucetAddress = "0xece43043143414bC9A02d22bB3cf11Ba3545C53f"; 
+    
+    // ABI minimal Faucet
+    const faucetABI = [
+      {
+        "inputs": [],
+        "name": "requestTokens",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      }
+    ];
 
-  async function connectWallet() {
-    if (typeof window.ethereum !== "undefined") {
+    let provider, signer, faucet;
+
+    // Connect wallet
+    async function connectWallet() {
+      if (typeof window.ethereum !== "undefined") {
+        try {
+          provider = new ethers.providers.Web3Provider(window.ethereum);
+          await provider.send("eth_requestAccounts", []);
+          signer = provider.getSigner();
+          const address = await signer.getAddress();
+
+          // cek network → harus di BNB Testnet (Chain ID = 97)
+          const network = await provider.getNetwork();
+          if (network.chainId !== 97) {
+            document.getElementById("status").innerText = "⚠️ Harus di BNB Testnet (Chain ID 97)";
+            return;
+          }
+
+          faucet = new ethers.Contract(faucetAddress, faucetABI, signer);
+
+          document.getElementById("status").innerText = "✅ Connected: " + address;
+          document.getElementById("claim").disabled = false;
+
+        } catch (err) {
+          console.error(err);
+          document.getElementById("status").innerText = "❌ Error: " + err.message;
+        }
+      } else {
+        alert("⚠️ MetaMask tidak ditemukan. Install dulu di browser.");
+      }
+    }
+
+    // Claim faucet
+    async function claimTokens() {
       try {
-        // Minta izin akses wallet
-        provider = new ethers.providers.Web3Provider(window.ethereum);
-        await provider.send("eth_requestAccounts", []);
-        
-        signer = provider.getSigner();
-        const address = await signer.getAddress();
-
-        document.getElementById("status").innerText = "✅ Connected: " + address;
-        document.getElementById("claim").disabled = false;
-
+        const tx = await faucet.requestTokens();
+        document.getElementById("status").innerText = "⏳ Transaksi dikirim: " + tx.hash;
+        await tx.wait();
+        document.getElementById("status").innerText = "🎉 Berhasil klaim 1000 KRB!";
       } catch (err) {
         console.error(err);
-        document.getElementById("status").innerText = "❌ Error: " + err.message;
+        document.getElementById("status").innerText = "❌ Gagal: " + (err.message || "Transaksi error");
       }
-    } else {
-      alert("⚠️ MetaMask tidak ditemukan. Silakan install di browser.");
     }
-  }
 
-  document.getElementById("connect").onclick = connectWallet;
-</script>
+    document.getElementById("connect").onclick = connectWallet;
+    document.getElementById("claim").onclick = claimTokens;
+  </script>
 </body>
 </html>
