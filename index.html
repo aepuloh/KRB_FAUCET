@@ -4,42 +4,58 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>KRB Faucet</title>
-  <!-- 🟢 CDN ethers.js harus dimuat dulu -->
+  <!-- ethers.js -->
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; background: #f9f9f9; text-align: center; padding: 50px; }
+    body { font-family: Arial, sans-serif; background: #f0f2f5; text-align: center; padding: 40px; }
     h1 { color: #333; }
+    .card { background: white; border-radius: 12px; padding: 20px; margin: 20px auto; max-width: 400px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
     button { padding: 12px 20px; font-size: 16px; margin: 10px; cursor: pointer; border: none; border-radius: 8px; }
     #connect { background: #3b82f6; color: white; }
     #claim { background: #22c55e; color: white; }
-    #status { margin-top: 20px; font-weight: bold; }
+    #status { margin-top: 15px; font-weight: bold; }
   </style>
 </head>
 <body>
   <h1>🚰 KRB Faucet</h1>
   <p>Klaim token <b>Kacer Birds (KRB)</b> di BNB Testnet</p>
 
-  <button id="connect">🔌 Connect Wallet</button>
-  <button id="claim" disabled>💧 Claim 1000 KRB</button>
+  <div class="card">
+    <button id="connect">🔌 Connect Wallet</button>
+    <button id="claim" disabled>💧 Claim 1000 KRB</button>
+    <div id="status">❌ Wallet not connected</div>
+  </div>
 
-  <div id="status">❌ Wallet not connected</div>
+  <div class="card">
+    <h3>👛 Wallet Info</h3>
+    <p id="userAddress">Address: -</p>
+    <p id="userBalance">Balance: -</p>
+  </div>
+
+  <div class="card">
+    <h3>🏦 Faucet Info</h3>
+    <p id="faucetBalance">Faucet Balance: -</p>
+  </div>
 
   <script>
-    // 🟢 Ganti dengan alamat faucet kamu
-    const faucetAddress = "0x0F972539Ed5a10a31Be729DFC368dBEE397a0f1a"; 
-    
-    // ABI minimal Faucet
+    // 🟢 Alamat kontrak faucet
+    const faucetAddress = "0xece43043143414bC9A02d22bB3cf11Ba3545C53f"; 
+    // 🟢 Alamat kontrak token KRB
+    const tokenAddress = "0xb3014a3E778D02f8d3eB367cd2d807A10B76cB58"; 
+
+    // Faucet ABI minimal
     const faucetABI = [
-      {
-        "inputs": [],
-        "name": "requestTokens",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-      }
+      { "inputs": [], "name": "requestTokens", "outputs": [], "stateMutability": "nonpayable", "type": "function" }
     ];
 
-    let provider, signer, faucet;
+    // ERC20 ABI minimal
+    const tokenABI = [
+      { "constant":true, "inputs":[{"name":"account","type":"address"}], "name":"balanceOf", "outputs":[{"name":"","type":"uint256"}], "type":"function" },
+      { "constant":true, "inputs":[], "name":"decimals", "outputs":[{"name":"","type":"uint8"}], "type":"function" },
+      { "constant":true, "inputs":[], "name":"symbol", "outputs":[{"name":"","type":"string"}], "type":"function" }
+    ];
+
+    let provider, signer, faucet, token, decimals, symbol;
 
     // Connect wallet
     async function connectWallet() {
@@ -50,7 +66,7 @@
           signer = provider.getSigner();
           const address = await signer.getAddress();
 
-          // cek network → harus di BNB Testnet (Chain ID = 97)
+          // cek network (BNB Testnet = 97)
           const network = await provider.getNetwork();
           if (network.chainId !== 97) {
             document.getElementById("status").innerText = "⚠️ Harus di BNB Testnet (Chain ID 97)";
@@ -58,9 +74,17 @@
           }
 
           faucet = new ethers.Contract(faucetAddress, faucetABI, signer);
+          token = new ethers.Contract(tokenAddress, tokenABI, provider);
+
+          decimals = await token.decimals();
+          symbol = await token.symbol();
 
           document.getElementById("status").innerText = "✅ Connected: " + address;
           document.getElementById("claim").disabled = false;
+
+          document.getElementById("userAddress").innerText = "Address: " + address;
+
+          refreshBalances(address);
 
         } catch (err) {
           console.error(err);
@@ -77,10 +101,29 @@
         const tx = await faucet.requestTokens();
         document.getElementById("status").innerText = "⏳ Transaksi dikirim: " + tx.hash;
         await tx.wait();
-        document.getElementById("status").innerText = "🎉 Berhasil klaim 1000 KRB!";
+        document.getElementById("status").innerText = "🎉 Berhasil klaim 1000 " + symbol + "!";
+        
+        const address = await signer.getAddress();
+        refreshBalances(address);
       } catch (err) {
         console.error(err);
         document.getElementById("status").innerText = "❌ Gagal: " + (err.message || "Transaksi error");
+      }
+    }
+
+    // Refresh balances
+    async function refreshBalances(userAddr) {
+      try {
+        const userBal = await token.balanceOf(userAddr);
+        const faucetBal = await token.balanceOf(faucetAddress);
+
+        document.getElementById("userBalance").innerText =
+          "Balance: " + (userBal / (10 ** decimals)) + " " + symbol;
+
+        document.getElementById("faucetBalance").innerText =
+          "Faucet Balance: " + (faucetBal / (10 ** decimals)) + " " + symbol;
+      } catch (err) {
+        console.error("Balance error:", err);
       }
     }
 
